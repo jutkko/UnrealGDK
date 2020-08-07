@@ -20,6 +20,7 @@
 #include "EngineClasses/SpatialActorChannel.h"
 #include "EngineClasses/SpatialGameInstance.h"
 #include "EngineClasses/SpatialNetConnection.h"
+#include "EngineClasses/SpatialNetDriverDebugContext.h"
 #include "EngineClasses/SpatialPackageMapClient.h"
 #include "EngineClasses/SpatialPendingNetGame.h"
 #include "EngineClasses/SpatialWorldSettings.h"
@@ -33,6 +34,7 @@
 #include "Interop/SpatialSender.h"
 #include "Interop/SpatialWorkerFlags.h"
 #include "LoadBalancing/AbstractLBStrategy.h"
+#include "LoadBalancing/DebugLBStrategy.h"
 #include "LoadBalancing/GridBasedLBStrategy.h"
 #include "LoadBalancing/LayeredLBStrategy.h"
 #include "LoadBalancing/OwnershipLockingPolicy.h"
@@ -78,6 +80,7 @@ DEFINE_STAT(STAT_SpatialActorsChanged);
 USpatialNetDriver::USpatialNetDriver(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, LoadBalanceStrategy(nullptr)
+	, DebugCtx(nullptr)
 	, LoadBalanceEnforcer(nullptr)
 	, bAuthoritativeDestruction(true)
 	, bConnectAsClient(false)
@@ -1005,6 +1008,8 @@ void USpatialNetDriver::NotifyActorDestroyed(AActor* ThisActor, bool IsSeamlessT
 
 void USpatialNetDriver::Shutdown()
 {
+	USpatialNetDriverDebugContext::DisableDebugSpatialGDK(this);
+
 	if (!IsServer())
 	{
 		// Notify the server that we're disconnecting so it can clean up our actors.
@@ -1745,6 +1750,11 @@ int32 USpatialNetDriver::ServerReplicateActors(float DeltaSeconds)
 		LastNonRelevantActors.Empty();
 
 		DebugRelevantActors = false;
+	}
+
+	if (DebugCtx)
+	{
+		DebugCtx->TickServer();
 	}
 
 #if !UE_BUILD_SHIPPING
@@ -2532,6 +2542,13 @@ void USpatialNetDriver::HandleStartupOpQueueing(TArray<SpatialGDK::OpList> InOpL
 
 		if (bIsReadyToStart)
 		{
+			ASpatialWorldSettings* WorldSettings = Cast<ASpatialWorldSettings>(GetWorld()->GetWorldSettings());
+#if WITH_EDITORONLY_DATA
+			if (WorldSettings && WorldSettings->bEnableDebugInterface)
+			{
+				USpatialNetDriverDebugContext::EnableDebugSpatialGDK(this);
+			}
+#endif
 			// Process levels which were loaded before the connection to Spatial was ready.
 			GetGameInstance()->CleanupCachedLevelsAfterConnection();
 
