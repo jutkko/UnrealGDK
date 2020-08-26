@@ -3,6 +3,7 @@
 #pragma once
 
 #include "SpatialView/EntityComponentTypes.h"
+#include "SpatialView/EntityDelta.h"
 
 #include <algorithm>
 
@@ -60,6 +61,31 @@ inline bool CompareSchemaObjects(const Schema_Object* Lhs, const Schema_Object* 
 	return FMemory::Memcmp(LhsBuffer.Get(), RhsBuffer.Get(), Length) == 0;
 }
 
+inline bool CompareSchemaComponentData(Schema_ComponentData* Lhs, Schema_ComponentData* Rhs)
+{
+	return CompareSchemaObjects(Schema_GetComponentDataFields(Lhs), Schema_GetComponentDataFields(Rhs));
+}
+
+inline bool CompareSchemaComponentUpdate(Schema_ComponentUpdate* Lhs, Schema_ComponentUpdate* Rhs)
+{
+	if (!CompareSchemaObjects(Schema_GetComponentUpdateFields(Lhs), Schema_GetComponentUpdateFields(Rhs)))
+	{
+		return false;
+	}
+
+	return CompareSchemaObjects(Schema_GetComponentUpdateEvents(Lhs), Schema_GetComponentUpdateEvents(Rhs));
+}
+
+inline bool CompareSchemaComponentRefresh(const CompleteUpdateData Lhs, const CompleteUpdateData Rhs)
+{
+	if (!CompareSchemaObjects(Schema_GetComponentDataFields(Lhs.Data), Schema_GetComponentDataFields(Rhs.Data)))
+	{
+		return false;
+	}
+
+	return CompareSchemaObjects(Lhs.Events, Rhs.Events);
+}
+
 /** Returns true if Lhs and Rhs have the same component ID and state. */
 inline bool CompareComponentData(const ComponentData& Lhs, const ComponentData& Rhs)
 {
@@ -67,7 +93,53 @@ inline bool CompareComponentData(const ComponentData& Lhs, const ComponentData& 
 	{
 		return false;
 	}
+
 	return CompareSchemaObjects(Lhs.GetFields(), Rhs.GetFields());
+}
+
+inline bool CompareComponentChanges(const ComponentChange& Lhs, const ComponentChange& Rhs)
+{
+	if (Lhs.ComponentId != Rhs.ComponentId)
+	{
+		return false;
+	}
+
+	if (Lhs.Type != Rhs.Type)
+	{
+		return false;
+	}
+
+	if (!CompareSchemaComponentData(Lhs.Data, Rhs.Data))
+	{
+		return false;
+	}
+
+	if (!CompareSchemaComponentUpdate(Lhs.Update, Rhs.Update))
+	{
+		return false;
+	}
+
+	if (!CompareSchemaComponentRefresh(Lhs.CompleteUpdate, Rhs.CompleteUpdate))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+inline bool CompareAuthorityChanges(AuthorityChange Lhs, AuthorityChange Rhs)
+{
+	if (Lhs.ComponentId != Rhs.ComponentId)
+	{
+		return false;
+	}
+
+	if (Lhs.Type != Rhs.Type)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 /** Returns true if Lhs and Rhs have the same component ID and events. */
@@ -135,6 +207,16 @@ inline bool CompareEntityComponentId(const EntityComponentId& Lhs, const EntityC
 	return Lhs == Rhs;
 }
 
+inline bool CompareWorkerComponentId(const Worker_ComponentId& Lhs, const Worker_ComponentId& Rhs)
+{
+	return Lhs == Rhs;
+}
+
+inline bool CompareWorkerEntityIdKey(const long Lhs, const long Rhs)
+{
+	return Lhs == Rhs;
+}
+
 template <typename T, typename Predicate>
 bool AreEquivalent(const TArray<T>& Lhs, const TArray<T>& Rhs, Predicate&& Compare)
 {
@@ -159,6 +241,17 @@ inline bool AreEquivalent(const TArray<EntityComponentData>& Lhs, const TArray<E
 inline bool AreEquivalent(const TArray<EntityComponentId>& Lhs, const TArray<EntityComponentId>& Rhs)
 {
 	return AreEquivalent(Lhs, Rhs, CompareEntityComponentId);
+}
+
+inline bool AreEquivalent(const TArray<ComponentData>& Lhs, const TArray<ComponentData>& Rhs)
+{
+	return AreEquivalent(Lhs, Rhs, CompareComponentData);
+}
+
+template <typename T, typename Predicate>
+bool AreEquivalent(const ComponentSpan<T>& Lhs, const ComponentSpan<T>& Rhs, Predicate&& Compare)
+{
+	return std::is_permutation(Lhs.GetData(), Lhs.GetData() + Lhs.Num(), Rhs.GetData(), std::forward<Predicate>(Compare));
 }
 
 } // namespace SpatialGDK
