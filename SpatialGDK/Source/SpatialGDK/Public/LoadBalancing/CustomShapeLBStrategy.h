@@ -79,4 +79,5 @@ private:
 	bool bIsStrategyUsedOnLocalWorker;
 
 	static bool IsInside(const FBox2D& Box, const FVector2D& Location);
+	TMap<int, int> GetCellsToWorkerMap(const FString input);
 };

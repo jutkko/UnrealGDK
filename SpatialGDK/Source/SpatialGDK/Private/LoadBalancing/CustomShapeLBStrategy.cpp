@@ -39,45 +39,8 @@ void UCustomShapeLBStrategy::Init()
 	const float ColumnWidth = WorldWidth / 3;
 	const float RowHeight = WorldHeight / 3;
 
-	// Create a combination of 1, 2, 3; 4; 5, 6, 7, 8, 9; LB shape
-	TArray<int> Cells1;
-	Cells1.Add(1);
-	Cells1.Add(2);
-	Cells1.Add(3);
-
-	TArray<int> Cells2;
-	Cells1.Add(4);
-
-	TArray<int> Cells3;
-	Cells1.Add(5);
-	Cells1.Add(6);
-	Cells1.Add(7);
-	Cells1.Add(8);
-	Cells1.Add(9);
-
-	TArray<TArray<int>> AllCells;
-	AllCells.Add(Cells1);
-	AllCells.Add(Cells2);
-	AllCells.Add(Cells3);
-
-	// Initialise WorkerCells
-	for (int i = 0; i < 3; ++i)
-	{
-		TArray<FBox2D> WorkerCells;
-		WorkerCellsSet.Add(WorkerCells);
-	}
-
-	// Initialise TMap with cell indices mapping to WorkerCells
-	TMap<int, TArray<FBox2D>> CellToWorkerMap;
-	for (int i = 0; i < AllCells.Num(); ++i)
-	{
-		for (int j = 0; j < AllCells[i].Num(); ++j)
-		{
-			CellToWorkerMap.Add(AllCells[i][j], WorkerCellsSet[i]);
-		}
-	}
-
-	uint32 areaIndex = 1;
+	TMap<int, int> CellToWorkerMap = GetCellsToWorkerMap("CHANGE ME!");
+	int areaIndex = 1;
 	for (uint32 Col = 0; Col < 3; ++Col)
 	{
 		YMax = YMin + ColumnWidth;
@@ -90,10 +53,8 @@ void UCustomShapeLBStrategy::Init()
 			FVector2D Max(XMax, YMax);
 			FBox2D Cell(Min, Max);
 
-			if (TArray<FBox2D>* WorkerCells = CellToWorkerMap.Find(areaIndex))
-			{
-				WorkerCells->Add(Cell);
-			}
+			WorkerCellsSet[CellToWorkerMap[areaIndex]].Add(Cell);
+			UE_LOG(LogCustomShapeLBStrategy, Log, TEXT("CustomShapeLBStrategy init adding cells to worker cells for index %d."), areaIndex);
 
 			XMin = XMax;
 			areaIndex++;
@@ -206,6 +167,7 @@ FVector UCustomShapeLBStrategy::GetWorkerEntityPosition() const
 {
 	check(IsReady());
 	check(bIsStrategyUsedOnLocalWorker);
+	UE_LOG(LogCustomShapeLBStrategy, Log, TEXT("CustomShapeLBStrategy get worker entity with local call id %d"), LocalCellId);
 	const FVector2D Centre = WorkerCellsSet[LocalCellId][0].GetCenter();
 	return FVector{ Centre.X, Centre.Y, 0.f };
 }
@@ -228,4 +190,48 @@ bool UCustomShapeLBStrategy::IsInside(const FBox2D& Box, const FVector2D& Locati
 {
 	return Location.X >= Box.Min.X && Location.Y >= Box.Min.Y
 		&& Location.X < Box.Max.X && Location.Y < Box.Max.Y;
+}
+
+// TODO: Use the input instead of hardcoding the map!
+TMap<int, int> UCustomShapeLBStrategy::GetCellsToWorkerMap(const FString input)
+{
+	// Create a combination of 1, 2, 3; 4; 5, 6, 7, 8, 9; LB shape
+	TArray<int> Cells1;
+	Cells1.Add(1);
+	Cells1.Add(2);
+	Cells1.Add(3);
+	Cells1.Add(4);
+	Cells1.Add(5);
+	Cells1.Add(6);
+	Cells1.Add(7);
+
+	TArray<int> Cells2;
+	Cells2.Add(8);
+
+	TArray<int> Cells3;
+	Cells3.Add(9);
+
+	TArray<TArray<int>> AllCells;
+	AllCells.Add(Cells1);
+	AllCells.Add(Cells2);
+	AllCells.Add(Cells3);
+
+	// Initialise WorkerCells
+	for (int i = 0; i < 3; ++i)
+	{
+		TArray<FBox2D> WorkerCells;
+		WorkerCellsSet.Add(WorkerCells);
+	}
+
+	// Initialise TMap with cell indices mapping to WorkerCells
+	TMap<int, int> CellToWorkerMap;
+	for (int i = 0; i < AllCells.Num(); ++i)
+	{
+		for (int j = 0; j < AllCells[i].Num(); ++j)
+		{
+			CellToWorkerMap.Add(AllCells[i][j], i);
+		}
+	}
+
+	return CellToWorkerMap;
 }
