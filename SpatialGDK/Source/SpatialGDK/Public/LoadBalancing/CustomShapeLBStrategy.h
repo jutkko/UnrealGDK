@@ -75,7 +75,6 @@ private:
 	TArray<VirtualWorkerId> VirtualWorkerIds;
 
 	TArray<TArray<FBox2D>> WorkerCellsSet;
-	// TArray<FBox2D> WorkerCells;
 	uint32 LocalCellId;
 	bool bIsStrategyUsedOnLocalWorker;
 

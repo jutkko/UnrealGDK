@@ -21,7 +21,6 @@ UCustomShapeLBStrategy::UCustomShapeLBStrategy()
 {
 }
 
-// Always ignore the columns in the first row, while keeping the others the same as grid
 void UCustomShapeLBStrategy::Init()
 {
 	Super::Init();
@@ -30,53 +29,79 @@ void UCustomShapeLBStrategy::Init()
 	const float WorldWidthMin = -(WorldWidth / 2.f);
 	const float WorldHeightMin = -(WorldHeight / 2.f);
 
-	// const float ColumnWidth = WorldWidth / Cols;
-	// const float RowHeight = WorldHeight / Rows;
-
-	const float ColumnWidth = WorldWidth / 2;
-	const float RowHeight = WorldHeight / 2;
-
 	// We would like the inspector's representation of the load balancing strategy to match our intuition.
 	// +x is forward, so rows are perpendicular to the x-axis and columns are perpendicular to the y-axis.
 	float XMin = WorldHeightMin;
 	float YMin = WorldWidthMin;
 	float XMax, YMax;
 
-	// Create a combination of 1, 2, 3; 4; LB shape
-	uint32 areaCount = 1;
-	// Initialise 2 WorkerCellsSets
-	TArray<FBox2D> WorkerCells1;
-	TArray<FBox2D> WorkerCells2;
+	// Split the map to 9 cells, 3 rows by 3 columns
+	const float ColumnWidth = WorldWidth / 3;
+	const float RowHeight = WorldHeight / 3;
 
-	for (uint32 Col = 0; Col < 2; ++Col)
+	// Create a combination of 1, 2, 3; 4; 5, 6, 7, 8, 9; LB shape
+	TArray<int> Cells1;
+	Cells1.Add(1);
+	Cells1.Add(2);
+	Cells1.Add(3);
+
+	TArray<int> Cells2;
+	Cells1.Add(4);
+
+	TArray<int> Cells3;
+	Cells1.Add(5);
+	Cells1.Add(6);
+	Cells1.Add(7);
+	Cells1.Add(8);
+	Cells1.Add(9);
+
+	TArray<TArray<int>> AllCells;
+	AllCells.Add(Cells1);
+	AllCells.Add(Cells2);
+	AllCells.Add(Cells3);
+
+	// Initialise WorkerCells
+	for (int i = 0; i < 3; ++i)
+	{
+		TArray<FBox2D> WorkerCells;
+		WorkerCellsSet.Add(WorkerCells);
+	}
+
+	// Initialise TMap with cell indices mapping to WorkerCells
+	TMap<int, TArray<FBox2D>> CellToWorkerMap;
+	for (int i = 0; i < AllCells.Num(); ++i)
+	{
+		for (int j = 0; j < AllCells[i].Num(); ++j)
+		{
+			CellToWorkerMap.Add(AllCells[i][j], WorkerCellsSet[i]);
+		}
+	}
+
+	uint32 areaIndex = 1;
+	for (uint32 Col = 0; Col < 3; ++Col)
 	{
 		YMax = YMin + ColumnWidth;
 
-		for (uint32 Row = 0; Row < 2; ++Row)
+		for (uint32 Row = 0; Row < 3; ++Row)
 		{
 			XMax = XMin + RowHeight;
 
 			FVector2D Min(XMin, YMin);
 			FVector2D Max(XMax, YMax);
 			FBox2D Cell(Min, Max);
-			if (areaCount != 4)
+
+			if (TArray<FBox2D>* WorkerCells = CellToWorkerMap.Find(areaIndex))
 			{
-				WorkerCells1.Add(Cell);
-			}
-			else {
-				WorkerCells2.Add(Cell);
+				WorkerCells->Add(Cell);
 			}
 
 			XMin = XMax;
-			areaCount++;
+			areaIndex++;
 		}
 
 		XMin = WorldHeightMin;
 		YMin = YMax;
 	}
-
-	WorkerCellsSet.Add(WorkerCells1);
-	WorkerCellsSet.Add(WorkerCells2);
 }
 
 void UCustomShapeLBStrategy::SetLocalVirtualWorkerId(VirtualWorkerId InLocalVirtualWorkerId)
